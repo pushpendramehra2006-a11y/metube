@@ -10,6 +10,7 @@ from yt_dlp.utils import DownloadCancelled
 app = FastAPI(title="MeTube")
 IMG = {"jpg", "jpeg", "png", "webp", "gif"}
 JOBS = {}
+INFO_CACHE = {}  # Link info cache taaki baar-baar fetch karne me time na lage
 
 
 class Link(BaseModel):
@@ -23,14 +24,18 @@ class Start(BaseModel):
 
 
 def get_ydl_opts(extra_opts=None):
-    opts = {"quiet": True, "noplaylist": True}
-    
-    # Check if cookies.txt exists locally
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "playlist_items": "1",
+        "socket_timeout": 15,
+        "extractor_args": {"youtube": {"skip": ["translated_subs"]}},
+    }
+    # Agar cookies.txt maujood hai to bot detection bypass karne ke liye use karega
     if os.path.exists("cookies.txt"):
         opts["cookiefile"] = "cookies.txt"
     else:
-        # Fallback to try extracting cookies from available browsers automatically
-        # You can change 'chrome' to 'firefox' or 'edge' depending on what browser you use
         opts["cookiesfrombrowser"] = ("chrome",)
         
     if extra_opts:
@@ -45,8 +50,15 @@ def first_entry(i):
 
 
 def get_info(url):
-    with yt_dlp.YoutubeDL(get_ydl_opts({"extract_flat": False})) as y:
-        return first_entry(y.extract_info(url, download=False))
+    now = time.time()
+    # Cache check: agar pichle 10 minutos me same URL check hua hai to instant return karega
+    if url in INFO_CACHE and now - INFO_CACHE[url]["t"] < 600:
+        return INFO_CACHE[url]["data"]
+
+    with yt_dlp.YoutubeDL(get_ydl_opts()) as y:
+        data = first_entry(y.extract_info(url, download=False))
+        INFO_CACHE[url] = {"t": now, "data": data}
+        return data
 
 
 @app.post("/api/info")
@@ -55,6 +67,7 @@ def info(l: Link):
         i = get_info(l.url)
     except Exception as e:
         raise HTTPException(400, "Link read nahi ho paya: " + str(e)[:200])
+    
     fm = i.get("formats") or []
     dur = i.get("duration") or 0
 
@@ -65,6 +78,7 @@ def info(l: Link):
         return s
 
     audio = max([fsize(f) for f in fm if f.get("vcodec") == "none" and f.get("acodec") != "none"] or [0])
+    
     best = {}
     for f in fm:
         h = f.get("height")
@@ -73,12 +87,20 @@ def info(l: Link):
             c = best.get(h)
             if not c or (q["fps"], q["tbr"]) > (c["fps"], c["tbr"]):
                 best[h] = q
+                
     for q in best.values():
         q["size"] = q["size"] + audio if q["size"] else 0
+        
     heights = [best[k] for k in sorted(best, reverse=True)]
     is_image = i.get("ext") in IMG or (not fm and bool(i.get("thumbnail")))
-    return {"title": i.get("title") or "Untitled", "thumbnail": i.get("thumbnail"),
-            "heights": heights, "is_image": is_image, "has_video": bool(heights)}
+    
+    return {
+        "title": i.get("title") or "Untitled", 
+        "thumbnail": i.get("thumbnail"),
+        "heights": heights, 
+        "is_image": is_image, 
+        "has_video": bool(heights)
+    }
 
 
 def cleanup(d):
@@ -242,7 +264,7 @@ def get_file(jid: str):
 
     def done():
         cleanup(j["dir"])
-    JOBS.pop(jid, None)
+        JOBS.pop(jid, None)
 
     return FileResponse(j["path"], filename=j["name"], background=BackgroundTask(done))
 
