@@ -22,6 +22,22 @@ class Start(BaseModel):
     height: int = 0
 
 
+def get_ydl_opts(extra_opts=None):
+    opts = {"quiet": True, "noplaylist": True}
+    
+    # Check if cookies.txt exists locally
+    if os.path.exists("cookies.txt"):
+        opts["cookiefile"] = "cookies.txt"
+    else:
+        # Fallback to try extracting cookies from available browsers automatically
+        # You can change 'chrome' to 'firefox' or 'edge' depending on what browser you use
+        opts["cookiesfrombrowser"] = ("chrome",)
+        
+    if extra_opts:
+        opts.update(extra_opts)
+    return opts
+
+
 def first_entry(i):
     if i.get("_type") == "playlist" and i.get("entries"):
         return i["entries"][0]
@@ -29,7 +45,7 @@ def first_entry(i):
 
 
 def get_info(url):
-    with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as y:
+    with yt_dlp.YoutubeDL(get_ydl_opts({"extract_flat": False})) as y:
         return first_entry(y.extract_info(url, download=False))
 
 
@@ -134,17 +150,23 @@ def work(j, url, kind, height):
             if x["status"] == "started":
                 j["status"] = "merging"
 
-        opts = {"quiet": True, "noplaylist": True, "outtmpl": d + "/%(title).80s.%(ext)s",
-                "progress_hooks": [hook], "postprocessor_hooks": [pp]}
+        base_opts = {
+            "outtmpl": d + "/%(title).80s.%(ext)s",
+            "progress_hooks": [hook], 
+            "postprocessor_hooks": [pp]
+        }
+        
         if kind == "mp3":
-            opts.update(format="bestaudio/best", postprocessors=[
+            base_opts.update(format="bestaudio/best", postprocessors=[
                 {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}])
         else:
             h = f"[height<={height}]" if height else ""
-            opts.update(format=f"bestvideo{h}+bestaudio[ext=m4a]/bestvideo{h}+bestaudio/best{h}/best",
-                        format_sort=["res", "fps", "br"], merge_output_format="mp4")
-        with yt_dlp.YoutubeDL(opts) as y:
+            base_opts.update(format=f"bestvideo{h}+bestaudio[ext=m4a]/bestvideo{h}+bestaudio/best{h}/best",
+                             format_sort=["res", "fps", "br"], merge_output_format="mp4")
+            
+        with yt_dlp.YoutubeDL(get_ydl_opts(base_opts)) as y:
             y.download([url])
+            
         files = [os.path.join(d, f) for f in os.listdir(d)]
         files = [f for f in files if os.path.isfile(f) and not f.endswith((".part", ".ytdl"))]
         if not files:
@@ -181,8 +203,8 @@ def convert(file: UploadFile = File(...)):
                 raise ValueError("Convert fail hua")
             os.remove(src)
             j.update(path=out, name=os.path.basename(out), status="ready", pct=100)
-        except Exception as e:
-            fail(j, e)
+        except Exception as z:
+            fail(j, z)
 
     threading.Thread(target=run, daemon=True).start()
     return {"id": jid}
@@ -220,7 +242,7 @@ def get_file(jid: str):
 
     def done():
         cleanup(j["dir"])
-        JOBS.pop(jid, None)
+    JOBS.pop(jid, None)
 
     return FileResponse(j["path"], filename=j["name"], background=BackgroundTask(done))
 
