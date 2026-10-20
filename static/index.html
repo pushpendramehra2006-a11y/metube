@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MeTube</title>
+<script>
+(function(){var t=localStorage.getItem("mt-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");document.documentElement.dataset.theme=t})();
+</script>
+<style>
+:root{--bg:#f4f4f7;--card:#fff;--tx:#15151b;--mut:#6d6d78;--ac:#e62117;--ac2:#ff6a3d;--bd:#00000012;--sh:0 8px 28px #0000001a;--in:#f4f4f7}
+:root[data-theme=dark]{--bg:#0e0e11;--card:#1a1a1f;--tx:#f3f3f6;--mut:#9b9ba7;--bd:#ffffff14;--sh:0 8px 28px #00000080;--in:#0e0e11}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--tx);transition:background .3s,color .3s;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+main{max-width:600px;margin:0 auto;padding:18px 16px 40px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{margin:0;font-size:28px;background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}
+#th{width:44px;height:44px;margin:0;padding:0;border-radius:50%;background:var(--card);border:1px solid var(--bd);box-shadow:var(--sh);font-size:20px;color:var(--tx)}
+.card{background:var(--card);border:1px solid var(--bd);box-shadow:var(--sh);border-radius:18px;padding:16px;margin-bottom:16px;transition:background .3s;animation:up .4s ease both}
+input[type=text]{width:100%;padding:13px;border-radius:12px;border:1px solid var(--bd);background:var(--in);color:var(--tx);font-size:16px;outline:none}
+input[type=text]:focus{border-color:var(--ac)}
+button,label.btn{display:inline-block;margin:8px 8px 0 0;padding:11px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-size:15px;cursor:pointer;transition:transform .15s,opacity .15s}
+button:hover,label.btn:hover{transform:translateY(-1px)}button:active,label.btn:active{transform:scale(.96)}
+button:disabled{opacity:.6}
+button.alt{background:#6b6b76}
+img{width:100%;border-radius:12px;margin-bottom:10px}
+#msg{color:var(--ac);min-height:1.2em;margin:8px 0 0}
+.sub{color:var(--mut);font-size:14px;margin:4px 0 0}
+.ov{position:fixed;inset:0;background:#000a;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10;animation:fade .25s}
+.ov[hidden]{display:none}
+.modal{background:var(--card);color:var(--tx);border-radius:22px;padding:26px 22px;width:100%;max-width:340px;text-align:center;box-shadow:var(--sh);animation:pop .3s ease}
+.vis{position:relative;width:96px;height:96px;margin:0 auto 14px}
+.ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent,var(--ac),var(--ac2));-webkit-mask:radial-gradient(farthest-side,#0000 calc(100% - 7px),#000 calc(100% - 6px));mask:radial-gradient(farthest-side,#0000 calc(100% - 7px),#000 calc(100% - 6px));animation:spin 1s linear infinite}
+.eq{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:4px}
+.eq i{width:6px;height:10px;border-radius:3px;background:var(--ac);animation:eq 1s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.15s}.eq i:nth-child(3){animation-delay:.3s}.eq i:nth-child(4){animation-delay:.45s}.eq i:nth-child(5){animation-delay:.6s}
+.ck{position:absolute;inset:0;display:none}
+.ck circle{fill:none;stroke:#22c55e;stroke-width:3;stroke-dasharray:151;stroke-dashoffset:151;animation:draw .6s ease forwards}
+.ck path{fill:none;stroke:#22c55e;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:50;stroke-dashoffset:50;animation:draw .4s .5s ease forwards}
+.modal.done .ring,.modal.done .eq,.modal.err .ring,.modal.err .eq{display:none}
+.modal.done .ck{display:block}
+.modal.err .vis::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:700;color:var(--ac);border:4px solid var(--ac);border-radius:50%;animation:pop .3s}
+.modal.xfer .eq i{animation-duration:.6s}
+.modal h3{margin:0 0 6px;font-size:19px}
+.modal p{margin:0 0 14px;color:var(--mut);font-size:14px;min-height:1.3em;word-break:break-word}
+.bar{height:8px;border-radius:99px;background:var(--bd);overflow:hidden}
+.bar b{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .2s}
+.modal.prep .bar b{width:40%;animation:slide 1.2s ease-in-out infinite}
+.modal.done .bar b{width:100%;background:#22c55e}
+.modal.err .bar{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes eq{0%,100%{height:10px}50%{height:34px}}
+@keyframes slide{0%{margin-left:-40%}100%{margin-left:100%}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes up{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>MeTube</h1><button id="th" aria-label="Theme badlo"></button></header>
+<div class="card">
+  <input id="url" type="text" placeholder="YouTube / Instagram / Facebook link paste karo" inputmode="url" autocomplete="off">
+  <button id="go">Check</button>
+  <p id="msg"></p>
+</div>
+<div class="card" id="res" hidden>
+  <img id="thumb" alt="">
+  <b id="title"></b>
+  <div id="opts"></div>
+</div>
+<div class="card">
+  <b>Gallery video se MP3</b>
+  <p class="sub">Phone ya laptop se video chuno, MP3 ban jayegi</p>
+  <label class="btn">Video chuno<input id="vf" type="file" accept="video/*" hidden></label>
+</div>
+</main>
+
+<div id="ov" class="ov" hidden>
+  <div class="modal prep" id="md">
+    <div class="vis">
+      <div class="ring"></div>
+      <div class="eq"><i></i><i></i><i></i><i></i><i></i></div>
+      <svg class="ck" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M14 27l8 8 16-17"/></svg>
+    </div>
+    <h3 id="ot"></h3>
+    <p id="os"></p>
+    <div class="bar"><b id="pb"></b></div>
+    <button id="cx" class="alt">Cancel</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const msg = t => $("msg").textContent = t || "";
+const mb = b => b > 1e9 ? (b / 1e9).toFixed(2) + " GB" : (b / 1e6).toFixed(1) + " MB";
+
+/* theme */
+const root = document.documentElement;
+const paintTheme = () => $("th").textContent = root.dataset.theme === "dark" ? "☀️" : "🌙";
+$("th").onclick = () => {
+  root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("mt-theme", root.dataset.theme); paintTheme();
+};
+paintTheme();
+
+/* download overlay */
+let state = "prep", jid = null, aborted = false, xhr = null, closeT = null;
+function show(s, t, sub) {
+  state = s; $("md").className = "modal " + s;
+  if (s === "prep") $("pb").style.width = "";
+  $("ot").textContent = t; $("os").textContent = sub || "";
+  $("cx").textContent = s === "prep" || s === "xfer" ? "Cancel" : "Band karo";
+}
+function closeOv() { clearTimeout(closeT); $("ov").hidden = true; }
+$("cx").onclick = () => {
+  if (state === "prep" || state === "xfer") {
+    aborted = true;
+    if (xhr) xhr.abort();
+    if (jid) fetch("/api/cancel/" + jid, { method: "POST" });
+  }
+  closeOv();
+};
+const fmtT = s => s == null ? "" : Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0");
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function run(label, start) {
+  aborted = false; jid = null; xhr = null; clearTimeout(closeT);
+  $("ov").hidden = false; show("prep", label, "Shuru ho raha hai...");
+  try {
+    const d = await start();
+    jid = d.id;
+    if (aborted) { fetch("/api/cancel/" + jid, { method: "POST" }); return; }
+    for (;;) {
+      const r = await fetch("/api/status/" + jid);
+      const s = await r.json();
+      if (aborted) return;
+      if (!r.ok) throw new Error(s.detail || "Status nahi mila");
+      if (s.status === "downloading") {
+        if (state !== "xfer") show("xfer", "Download ho raha hai", "");
+        $("pb").style.width = s.pct + "%";
+        $("os").textContent = Math.round(s.pct) + "%" + (s.speed ? " · " + (s.speed / 1e6).toFixed(1) + " MB/s" : "") + (s.eta != null ? " · " + fmtT(s.eta) + " baaki" : "");
+      } else if (s.status === "merging") {
+        show("prep", "Video aur audio jod rahe hain", "Bas thodi der...");
+      } else if (s.status === "converting") {
+        show("prep", label, "Convert ho raha hai...");
+      } else if (s.status === "ready") {
+        const a = document.createElement("a");
+        a.href = "/api/file/" + jid; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+        show("done", "Ho gaya!", (s.size ? mb(s.size) + " · " : "") + "File Downloads me save ho rahi hai");
+        closeT = setTimeout(closeOv, 3500);
+        return;
+      } else if (s.status === "error") {
+        throw new Error(s.error || "Kuch gadbad hui");
+      } else if (s.status === "cancelled") {
+        return closeOv();
+      } else if (state !== "prep") {
+        show("prep", label, "Link se baat ho rahi hai...");
+      }
+      await sleep(700);
+    }
+  } catch (e) {
+    if (e.name === "AbortError" || aborted) return closeOv();
+    show("err", "Download nahi hua", e.message);
+  }
+}
+
+const dl = (kind, h) => run(
+  kind === "mp3" ? "MP3 ban raha hai" : kind === "image" ? "Image la rahe hain" : "Video taiyar ho rahi hai",
+  async () => {
+    const r = await fetch("/api/start", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: $("url").value.trim(), kind, height: h || 0 }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Start nahi hua");
+    return d;
+  });
+const btn = (txt, fn, alt) => {
+  const b = document.createElement("button");
+  b.textContent = txt; if (alt) b.className = "alt"; b.onclick = fn;
+  $("opts").appendChild(b);
+};
+
+/* link check */
+$("url").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+$("go").onclick = async () => {
+  const url = $("url").value.trim();
+  if (!url) return;
+  msg("Link check ho raha hai..."); $("go").disabled = true; $("res").hidden = true;
+  try {
+    const r = await fetch("/api/info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail);
+    msg("");
+    $("title").textContent = d.title;
+    $("thumb").src = d.thumbnail || ""; $("thumb").hidden = !d.thumbnail;
+    $("opts").innerHTML = "";
+    if (d.has_video) {
+      const tag = h => h >= 4320 ? " (8K)" : h >= 2160 ? " (4K)" : h >= 1440 ? " (2K)" : "";
+      const sz = b => b ? " · ~" + mb(b) : "";
+      d.heights.forEach((q, i) => btn("MP4 " + q.h + "p" + tag(q.h) + (q.fps > 30 ? " " + Math.round(q.fps) + "fps" : "") + sz(q.size) + (i === 0 ? " - Best" : ""), () => dl("mp4", q.h)));
+      btn("MP3 Audio", () => dl("mp3"), true);
+    }
+    if (d.is_image) btn("Image download", () => dl("image"), true);
+    $("res").hidden = false;
+  } catch (e) { msg(e.message); }
+  $("go").disabled = false;
+};
+
+/* gallery video -> mp3 */
+$("vf").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append("file", f);
+  run("MP3 ban raha hai", () => new Promise((res, rej) => {
+    xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/convert");
+    xhr.upload.onprogress = ev => {
+      if (!ev.lengthComputable) return;
+      if (state !== "xfer") show("xfer", "Video upload ho rahi hai", "");
+      const p = ev.loaded / ev.total * 100;
+      $("pb").style.width = p + "%";
+      $("os").textContent = Math.round(p) + "% · " + mb(ev.loaded) + " / " + mb(ev.total);
+    };
+    xhr.onload = () => {
+      let d = {}; try { d = JSON.parse(xhr.responseText); } catch {}
+      xhr.status < 300 && d.id ? res(d) : rej(new Error(d.detail || "Upload fail hua"));
+    };
+    xhr.onerror = () => rej(new Error("Upload fail hua"));
+    xhr.onabort = () => rej(Object.assign(new Error("abort"), { name: "AbortError" }));
+    xhr.send(fd);
+  }));
+  e.target.value = "";
+};
+</script>
+</body>
+</html>
